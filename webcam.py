@@ -1,34 +1,80 @@
 import numpy as np
 import cv2
-from datetime import datetime as time
+import time
+from datetime import datetime
 from facedetector import FaceDetector
 
+# in seconds
+VID_LENGTH = 10
+MIN_AREA = 250
+FOURCC = cv2.VideoWriter_fourcc(*'XVID')
 fd = FaceDetector("haarcascade_frontalface_default.xml")
-
 
 cap = cv2.VideoCapture(0)
 
+
+concluded = False
+firstFrame = None
+startTime = None
+
 while True:
-	ret,img = cap.read()
-	# cv2.imshow("original video", img)
+	currentTime = time.time()
+	ret, frame = cap.read()
+	grey = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+	blur = cv2.GaussianBlur(grey, (21, 21), 0)
 	
-	gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-	# cv2.imshow("gray video", gray)
+	if firstFrame is None:
+		firstFrame = blur
+		cv2.imshow("firstframe", firstFrame)
+		cv2.imwrite("background.jpg", firstFrame)
 	
-	faces = img
-	faceRects = fd.detect(gray, scaleFactor = 1.1, minNeighbors = 5, minSize = (30,30))
-	for (x,y,w,h) in faceRects:
-		cv2.rectangle(faces, (x,y), (x+w, y+h), (0, 255, 0), 2)
-	cv2.imshow("faces video", faces)
+	# face detetcion
+	# faces = frame
+	# faceRects = fd.detect(grey, scaleFactor = 1.1, minNeighbors = 5, minSize = (30,30))
+	# for (x,y,w,h) in faceRects:
+		# cv2.rectangle(faces, (x,y), (x+w, y+h), (0, 255, 0), 2)
+	# cv2.imshow("faces video", faces)
+	
+	# motion detection
+	frameDelta = cv2.absdiff(firstFrame, blur)
+	thresh = cv2.threshold(frameDelta, 25, 255, cv2.THRESH_BINARY)[1]
+	thresh = cv2.dilate(thresh, None, iterations=2)
+	cv2.imshow("threshold", frameDelta)
+	_, cnts, _= cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+	
+	for c in cnts:
+		if cv2.contourArea(c) < MIN_AREA:
+			continue
+		
+		(x,y,w,h) = cv2.boundingRect(c)
+		cv2.rectangle(frame, (x,y), (x+w, y+h), (0, 255, 0), 2)
+	
+	cv2.imshow("motion video", frame)
+	
+	if (len(cnts) > 0) and (startTime == None):
+		startTime = time.time()
+		print("detected motion, saving to file")
+		capname = "{}.avi".format(str(datetime.now().isoformat()))
+		capname = capname.replace(":","-")
+		vid = cv2.VideoWriter(capname, FOURCC, 5, (640, 480))
+	
+	if startTime != None:
+		if (currentTime - startTime)< VID_LENGTH:
+			vid.write(frame)
+		elif concluded == False:
+			vid.release()
+			print("finished recording")
+			concluded = True
+			startTime = None
 	
 	k=cv2.waitKey(10)& 0xff
-	
-	if k == 32:
-		capname = "{}.jpg".format(str(time.now().isoformat()))
-		# name doesnt accept :
-		capname = capname.replace(":","-")
-		cv2.imwrite(capname, img)
-	elif k == 27:
+	# if k == 32:
+		# capname = "{}.jpg".format(str(datetime.now().isoformat()))
+		# capname = capname.replace(":","-")
+		# cv2.imwrite(capname, frame)
+	if k == 27:
 		break
+
 cap.release()
+vid.release()
 cv2.destroyAllWindows()
