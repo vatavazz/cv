@@ -14,19 +14,19 @@ cap = cv2.VideoCapture(0)
 
 
 concluded = False
+# firstFrame = cv2.imread("background.jpg")
 firstFrame = None
 startTime = None
 
+LOOPS = 5
+
 while True:
-	currentTime = time.time()
 	ret, frame = cap.read()
 	grey = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 	blur = cv2.GaussianBlur(grey, (21, 21), 0)
 	
 	if firstFrame is None:
 		firstFrame = blur
-		cv2.imshow("firstframe", firstFrame)
-		cv2.imwrite("background.jpg", firstFrame)
 	
 	# face detetcion
 	# faces = frame
@@ -39,7 +39,7 @@ while True:
 	frameDelta = cv2.absdiff(firstFrame, blur)
 	thresh = cv2.threshold(frameDelta, 25, 255, cv2.THRESH_BINARY)[1]
 	thresh = cv2.dilate(thresh, None, iterations=2)
-	cv2.imshow("threshold", frameDelta)
+	diff = cv2.subtract(firstFrame, blur)
 	_, cnts, _= cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 	
 	for c in cnts:
@@ -59,7 +59,7 @@ while True:
 		vid = cv2.VideoWriter(capname, FOURCC, 5, (640, 480))
 	
 	if startTime != None:
-		if (currentTime - startTime)< VID_LENGTH:
+		if (time.time() - startTime)< VID_LENGTH:
 			vid.write(frame)
 		elif concluded == False:
 			vid.release()
@@ -67,14 +67,16 @@ while True:
 			concluded = True
 			startTime = None
 	
+	
 	k=cv2.waitKey(10)& 0xff
 	# if k == 32:
 		# capname = "{}.jpg".format(str(datetime.now().isoformat()))
 		# capname = capname.replace(":","-")
-		# cv2.imwrite(capname, frame)
+		# cv2.imwrite(capname, blur)
 	if k == 27:
 		break
 
 cap.release()
-vid.release()
+if vid != None:
+	vid.release()
 cv2.destroyAllWindows()
