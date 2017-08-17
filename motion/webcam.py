@@ -3,7 +3,7 @@ import cv2
 import time
 from datetime import datetime
 
-# in seconds
+# in seconds; actual length dependent on camera and video FPS
 VID_LENGTH = 10
 # size of detected motion; experiment
 MIN_AREA = 250
